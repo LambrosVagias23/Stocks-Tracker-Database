@@ -1,0 +1,15 @@
+# Streamlit theme. Palette matches the Plotly template in app/_theme.py.
+
+[theme]
+base = "dark"
+primaryColor = "#5EB3FF"
+backgroundColor = "#0B0E14"
+secondaryBackgroundColor = "#131822"
+textColor = "#D7DBE6"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
