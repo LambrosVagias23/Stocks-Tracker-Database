@@ -33,7 +33,7 @@ dependencies = [
 app = [
     # vectorbt bundles all the indicators we need (RSI, MACD, SMA/EMA, BBANDS)
     # via vbt.IndicatorFactory, so no separate TA library is required.
-    "vectorbt>=0.26,<0.27",
+    "vectorbt>=1.0,<2",
     "plotly>=5.20,<6",
     "streamlit>=1.35,<2",
     "supabase>=2.5,<3",
