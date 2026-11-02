@@ -1,0 +1,53 @@
+name: Daily OHLCV update
+
+on:
+  schedule:
+    # 22:30 UTC Mon-Fri = ~90 min after US market close. yfinance EOD bars are
+    # usually settled by then.
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ohlcv-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Run incremental update
+        env:
+          # The pooled URL (port 6543, aws-0-<region>.pooler.supabase.com) is
+          # required: GitHub-hosted runners are IPv4 and the direct connection
+          # host (db.<ref>.supabase.co) is IPv6-only on the Supabase free tier.
+          SUPABASE_DB_URL_POOLED: ${{ secrets.SUPABASE_DB_URL_POOLED }}
+        run: uv run python -m stocks_tracker.update
+
+      - name: Report run summary
+        if: always()
+        env:
+          SUPABASE_DB_URL_POOLED: ${{ secrets.SUPABASE_DB_URL_POOLED }}
+        run: |
+          uv run python - <<'PY'
+          from sqlalchemy import text
+          from stocks_tracker.db import get_engine
+          with get_engine().connect() as c:
+              total_prices = c.execute(text("SELECT COUNT(*) FROM prices")).scalar_one()
+              total_syms = c.execute(text("SELECT COUNT(DISTINCT symbol) FROM prices")).scalar_one()
+              last = c.execute(text("SELECT MAX(last_bar) FROM ingest_state")).scalar_one()
+          print(f"prices rows: {total_prices:,}")
+          print(f"symbols with data: {total_syms:,}")
+          print(f"latest bar across universe: {last}")
+          PY
