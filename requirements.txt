@@ -1,0 +1,21 @@
+# Pin set for Streamlit Community Cloud (pip-based builder).
+# Keep in sync with pyproject.toml. Local development should use
+# `uv sync --extra app` instead of this file.
+
+# Streamlit app
+streamlit>=1.35,<2
+plotly>=5.20,<6
+supabase>=2.5,<3
+
+# Analytics
+vectorbt>=1.0,<2
+numpy>=1.26,<3
+pandas>=2.2,<3
+
+# Pulled transitively by `stocks_tracker.backtest` at module import time
+SQLAlchemy>=2,<3
+psycopg2-binary>=2.9,<3
+python-dotenv>=1,<2
+
+# Install the local package itself so `stocks_tracker.*` imports resolve
+-e .
