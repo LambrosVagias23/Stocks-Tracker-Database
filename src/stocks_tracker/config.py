@@ -13,8 +13,9 @@ INDEX_NDX = "NDX"
 INDEX_R2000 = "R2000"
 
 SP500_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-NDX_WIKI_URL = "https://en.wikipedia.org/wiki/Nasdaq-100"
-R2000_WIKI_URL = "https://en.wikipedia.org/wiki/Russell_2000_Index"
+# Wikipedia's Nasdaq-100 page no longer lists its constituents inline; Slickcharts
+# publishes a stable HTML table.
+NDX_SLICKCHARTS_URL = "https://www.slickcharts.com/nasdaq100"
 
 BACKFILL_YEARS = 10
 YFINANCE_BATCH_SIZE = 100
