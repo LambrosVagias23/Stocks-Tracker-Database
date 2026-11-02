@@ -25,19 +25,18 @@ dependencies = [
     "psycopg2-binary>=2.9,<3",
     # Config
     "python-dotenv>=1,<2",
-]
-
-[project.optional-dependencies]
-# Analytics + Streamlit app.  Separated so the daily cron workflow can install
-# only `dependencies` for a lean, fast GitHub Actions run.
-app = [
-    # vectorbt bundles all the indicators we need (RSI, MACD, SMA/EMA, BBANDS)
-    # via vbt.IndicatorFactory, so no separate TA library is required.
+    # Analytics -- vectorbt bundles RSI/MACD/SMA/EMA/BBANDS so no separate TA
+    # library is required.
     "vectorbt>=1.0,<2",
     "plotly>=5.20,<6",
+    # Streamlit app. Kept in base deps (not an "app" extra) so Streamlit
+    # Community Cloud picks them up via its uv-sync build, which only installs
+    # base dependencies by default.
     "streamlit>=1.35,<2",
     "supabase>=2.5,<3",
 ]
+
+[project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
     "pytest-mock>=3.14,<4",

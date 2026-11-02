@@ -1,31 +1,26 @@
-# Pin set for Streamlit Community Cloud (pip-based builder).
-# Keep in sync with pyproject.toml. For local development, use
-# `uv sync --extra app` instead of this file.
-#
-# Each top-level dep is listed explicitly rather than relying on
-# `.[app]` extras resolution — Streamlit Cloud's pip has been
-# observed to abort the whole install if one line fails to resolve,
-# which was leaving `supabase` missing even though it was declared.
-
-streamlit>=1.35,<2
-plotly>=5.20,<6
-supabase>=2.5,<3
-
-vectorbt>=1.0,<2
-numpy>=1.26,<3
-pandas>=2.2,<3
-
-SQLAlchemy>=2,<3
-psycopg2-binary>=2.9,<3
+# This file is a fallback for pip-only build systems. The authoritative
+# dependency pin set lives in `pyproject.toml` + `uv.lock`. Streamlit
+# Community Cloud and `uv sync` both read uv.lock directly, so this file
+# normally isn't exercised. Keep it in sync with pyproject.toml's
+# `dependencies` list.
 
 yfinance>=0.2.40,<0.3
 requests>=2.31,<3
 beautifulsoup4>=4.12,<5
 lxml>=5,<6
 
+pandas>=2.2,<3
+numpy>=1.26,<3
+
+SQLAlchemy>=2,<3
+psycopg2-binary>=2.9,<3
+
 python-dotenv>=1,<2
 
-# Install the local package so `from stocks_tracker.* import ...` resolves.
-# Non-editable (`.` not `-e .`) because Streamlit Cloud's pip has issues with
-# editable installs when there's no build isolation override.
+vectorbt>=1.0,<2
+plotly>=5.20,<6
+
+streamlit>=1.35,<2
+supabase>=2.5,<3
+
 .

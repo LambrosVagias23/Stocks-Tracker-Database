@@ -1947,20 +1947,18 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
+    { name = "plotly" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "sqlalchemy" },
+    { name = "streamlit" },
+    { name = "supabase" },
+    { name = "vectorbt" },
     { name = "yfinance" },
 ]
 
 [package.optional-dependencies]
-app = [
-    { name = "plotly" },
-    { name = "streamlit" },
-    { name = "supabase" },
-    { name = "vectorbt" },
-]
 dev = [
     { name = "pytest" },
     { name = "pytest-mock" },
@@ -1973,7 +1971,7 @@ requires-dist = [
     { name = "lxml", specifier = ">=5,<6" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "pandas", specifier = ">=2.2,<3" },
-    { name = "plotly", marker = "extra == 'app'", specifier = ">=5.20,<6" },
+    { name = "plotly", specifier = ">=5.20,<6" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<9" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14,<4" },
@@ -1981,12 +1979,12 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31,<3" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5,<1" },
     { name = "sqlalchemy", specifier = ">=2,<3" },
-    { name = "streamlit", marker = "extra == 'app'", specifier = ">=1.35,<2" },
-    { name = "supabase", marker = "extra == 'app'", specifier = ">=2.5,<3" },
-    { name = "vectorbt", marker = "extra == 'app'", specifier = ">=1.0,<2" },
+    { name = "streamlit", specifier = ">=1.35,<2" },
+    { name = "supabase", specifier = ">=2.5,<3" },
+    { name = "vectorbt", specifier = ">=1.0,<2" },
     { name = "yfinance", specifier = ">=0.2.40,<0.3" },
 ]
-provides-extras = ["app", "dev"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "storage3"
