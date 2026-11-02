@@ -34,3 +34,6 @@ __pycache__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Playwright test snapshots
+.playwright-mcp/

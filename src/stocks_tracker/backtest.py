@@ -64,22 +64,25 @@ def _summary(pf: vbt.Portfolio) -> dict[str, Any]:
     }
 
 
-def run_backtest(
+def run_from_prices(
     symbol: str,
+    df: pd.DataFrame,
     strategy_key: str,
     params: dict[str, Any] | None = None,
-    start: date | str | None = None,
-    end: date | str | None = None,
     initial_cash: float = 10_000.0,
     fees: float = 0.0005,  # 5 bps round-trip
 ) -> dict[str, Any]:
-    """Run `strategy_key` on `symbol` and return a dict with the portfolio + metrics."""
+    """Run `strategy_key` on a pre-fetched price DataFrame.
+
+    The DataFrame is expected to have a DatetimeIndex and at least an
+    ``adj_close`` column (as returned by :func:`load_prices` or the
+    Streamlit app's data layer).
+    """
     if strategy_key not in STRATEGIES:
         raise KeyError(f"Unknown strategy {strategy_key!r}; see strategies.STRATEGIES")
-    spec = STRATEGIES[strategy_key]
-    df = load_prices(symbol, start=start, end=end)
     if df.empty:
-        raise ValueError(f"No prices in DB for {symbol} within the requested window")
+        raise ValueError(f"No prices for {symbol} in the requested window")
+    spec = STRATEGIES[strategy_key]
 
     close = df["adj_close"]
     sig: Signals = spec.fn(close, **(params or {}))
@@ -103,3 +106,17 @@ def run_backtest(
         "exits": sig.exits,
         "portfolio": pf,
     }
+
+
+def run_backtest(
+    symbol: str,
+    strategy_key: str,
+    params: dict[str, Any] | None = None,
+    start: date | str | None = None,
+    end: date | str | None = None,
+    initial_cash: float = 10_000.0,
+    fees: float = 0.0005,
+) -> dict[str, Any]:
+    """CLI/script entry point: pulls prices from Supabase via SQLAlchemy, then backtests."""
+    df = load_prices(symbol, start=start, end=end)
+    return run_from_prices(symbol, df, strategy_key, params, initial_cash, fees)
