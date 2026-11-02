@@ -15,7 +15,7 @@ from stocks_tracker.config import DB_UPSERT_BATCH_SIZE, PROJECT_ROOT, get_db_url
 
 log = logging.getLogger(__name__)
 
-SCHEMA_FILE = PROJECT_ROOT / "sql" / "001_init_schema.sql"
+SQL_DIR = PROJECT_ROOT / "sql"
 
 
 @lru_cache(maxsize=1)
@@ -29,13 +29,19 @@ def get_engine() -> Engine:
     return create_engine(url, pool_pre_ping=True, future=True)
 
 
-def apply_schema(path: Path = SCHEMA_FILE) -> None:
-    """Apply the SQL schema file. Idempotent — uses CREATE TABLE IF NOT EXISTS."""
-    sql = path.read_text(encoding="utf-8")
+def apply_schema(sql_dir: Path = SQL_DIR) -> None:
+    """Apply every ``*.sql`` file in sql_dir in sorted order.
+
+    Each file is wrapped in its own transaction. All files are written to be
+    idempotent (``CREATE TABLE IF NOT EXISTS``, ``ALTER COLUMN TYPE`` noop when
+    the type already matches) so re-running is safe.
+    """
     engine = get_engine()
-    with engine.begin() as conn:
-        conn.exec_driver_sql(sql)
-    log.info("Applied schema from %s", path.name)
+    for path in sorted(sql_dir.glob("*.sql")):
+        sql = path.read_text(encoding="utf-8")
+        with engine.begin() as conn:
+            conn.exec_driver_sql(sql)
+        log.info("Applied %s", path.name)
 
 
 def ping() -> dict[str, Any]:

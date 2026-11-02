@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS tickers (
 CREATE TABLE IF NOT EXISTS prices (
     symbol      TEXT NOT NULL REFERENCES tickers(symbol) ON DELETE CASCADE,
     trade_date  DATE NOT NULL,
-    open        NUMERIC(12,4),
-    high        NUMERIC(12,4),
-    low         NUMERIC(12,4),
-    close       NUMERIC(12,4),
-    adj_close   NUMERIC(12,4),
+    open        NUMERIC(18,4),
+    high        NUMERIC(18,4),
+    low         NUMERIC(18,4),
+    close       NUMERIC(18,4),
+    adj_close   NUMERIC(18,4),
     volume      BIGINT,
     PRIMARY KEY (symbol, trade_date)
 );
