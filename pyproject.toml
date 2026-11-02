@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stocks-tracker"
+version = "0.1.0"
+description = "Scrape daily OHLCV for ~2,500 US tickers into Supabase and backtest strategies via Streamlit."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "Lambros Vagias" }]
+
+dependencies = [
+    # Data acquisition
+    "yfinance>=0.2.40,<0.3",
+    "requests>=2.31,<3",
+    "beautifulsoup4>=4.12,<5",
+    "lxml>=5,<6",
+    # Data handling
+    "pandas>=2.2,<3",
+    "numpy>=1.26,<3",
+    # Database
+    "SQLAlchemy>=2,<3",
+    "psycopg2-binary>=2.9,<3",
+    # Config
+    "python-dotenv>=1,<2",
+]
+
+[project.optional-dependencies]
+# Analytics + Streamlit app.  Separated so the daily cron workflow can install
+# only `dependencies` for a lean, fast GitHub Actions run.
+app = [
+    # vectorbt bundles all the indicators we need (RSI, MACD, SMA/EMA, BBANDS)
+    # via vbt.IndicatorFactory, so no separate TA library is required.
+    "vectorbt>=0.26,<0.27",
+    "plotly>=5.20,<6",
+    "streamlit>=1.35,<2",
+    "supabase>=2.5,<3",
+]
+dev = [
+    "pytest>=8,<9",
+    "pytest-mock>=3.14,<4",
+    "ruff>=0.5,<1",
+]
+
+[project.scripts]
+stocks-backfill = "stocks_tracker.backfill:main"
+stocks-update = "stocks_tracker.update:main"
+stocks-universe = "stocks_tracker.universe:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stocks_tracker"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "integration: hits the real Supabase database (requires .env credentials)",
+]
