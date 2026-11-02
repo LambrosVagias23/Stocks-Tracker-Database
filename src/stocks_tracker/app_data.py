@@ -23,7 +23,18 @@ _PAGE_SIZE = 1000  # PostgREST hard-caps responses at 1000 rows per request
 
 @st.cache_resource
 def get_client() -> Client:
-    url, key = get_supabase_client_config()
+    # Prefer Streamlit secrets (set in the Cloud dashboard or in
+    # .streamlit/secrets.toml locally) because Streamlit's secrets -> env
+    # mirroring is not reliable on every version. Fall back to the config
+    # module, which reads os.environ / .env for the CLI case.
+    url = key = None
+    try:
+        url = st.secrets.get("SUPABASE_URL")
+        key = st.secrets.get("SUPABASE_ANON_KEY")
+    except (FileNotFoundError, AttributeError, KeyError):
+        pass
+    if not url or not key:
+        url, key = get_supabase_client_config()
     return create_client(url, key)
 
 
