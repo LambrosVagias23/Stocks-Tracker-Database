@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from _data import load_ingest_state, load_tickers
+from stocks_tracker.app_data import load_ingest_state, load_tickers
 
 st.set_page_config(page_title="Browse — Stocks Tracker", layout="wide")
 st.title("Browse the universe")

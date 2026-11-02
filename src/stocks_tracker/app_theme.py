@@ -1,6 +1,6 @@
 """Shared design tokens and Plotly template.
 
-Import from any page via ``from _theme import COLORS, plotly_template``.
+Import from any page via ``from stocks_tracker.app_theme import COLORS, plotly_template``.
 Keep this file in sync with ``.streamlit/config.toml`` so the Streamlit
 chrome and the Plotly charts share one palette.
 """

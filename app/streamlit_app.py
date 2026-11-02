@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from _data import load_ingest_state, load_tickers
-from _theme import COLORS
+from stocks_tracker.app_data import load_ingest_state, load_tickers
+from stocks_tracker.app_theme import COLORS
 
 st.set_page_config(
     page_title="Stocks Tracker",

@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from _data import load_ingest_state, load_prices, load_tickers
+from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
 from stocks_tracker.backtest import run_from_prices
 from stocks_tracker.strategies import STRATEGIES
 

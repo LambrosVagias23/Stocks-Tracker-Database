@@ -6,8 +6,8 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from _data import load_ingest_state, load_prices, load_tickers
-from _theme import COLORS, plotly_template
+from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
+from stocks_tracker.app_theme import COLORS, plotly_template
 from stocks_tracker.indicators import bbands, ema, macd, rsi, sma
 
 st.set_page_config(page_title="Chart — Stocks Tracker", page_icon=":material/candlestick_chart:",
