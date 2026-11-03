@@ -99,17 +99,19 @@ st.write("")
 # --- Page tiles -------------------------------------------------------------
 
 PAGES = [
-    ("Browse",   "Browse", "search",       "Filter and search 2,500 tickers by index, name, or data coverage."),
-    ("Chart",    "Chart",  "candlestick_chart", "Candlestick with SMA / EMA / Bollinger overlays and an RSI or MACD lower pane."),
-    ("Backtest", "Backtest", "insights",   "Run a strategy on one ticker. Metrics, equity curve, and trade log."),
-    ("Screener", "Screener", "filter_list","Run one strategy across a slice of the universe and rank the results."),
-    ("Admin",    "Admin",  "settings",     "Refresh universe, run daily updates, or trigger a full backfill (local-only)."),
+    # (page_number, page_filename_stem, label, material_icon, description)
+    (1, "Browse",   "Browse",   "search",            "Filter and search 2,500 tickers by index, name, or data coverage."),
+    (2, "Company",  "Company",  "apartment",         "Pick one ticker and see its snapshot: last close, 52-week range, YTD return, chart, recent bars."),
+    (3, "Chart",    "Chart",    "candlestick_chart", "Candlestick with SMA / EMA / Bollinger overlays and an RSI or MACD lower pane."),
+    (4, "Backtest", "Backtest", "insights",          "Run a strategy on one ticker. Metrics, equity curve, and trade log."),
+    (5, "Screener", "Screener", "filter_list",       "Run one strategy across a slice of the universe and rank the results."),
+    (6, "Admin",    "Admin",    "settings",          "Refresh universe, run daily updates, or trigger a full backfill (local-only)."),
 ]
 
 st.subheader("Explore")
 
 cols = st.columns(2, gap="medium")
-for i, (page, label, icon, desc) in enumerate(PAGES):
+for i, (num, page, label, icon, desc) in enumerate(PAGES):
     with cols[i % 2]:
         with st.container(border=True):
             st.markdown(
@@ -128,7 +130,7 @@ for i, (page, label, icon, desc) in enumerate(PAGES):
                 """,
                 unsafe_allow_html=True,
             )
-            st.page_link(f"pages/{i + 1}_{page}.py", label=f"Open {label}",
+            st.page_link(f"pages/{num}_{page}.py", label=f"Open {label}",
                          icon=":material/arrow_forward:")
 
 st.caption(
