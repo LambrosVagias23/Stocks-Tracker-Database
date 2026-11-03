@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 
 from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
 from stocks_tracker.app_theme import COLORS, plotly_template
-from stocks_tracker.indicators import bbands, ema, macd, rsi, sma
+from stocks_tracker.indicators import bbands, ema, macd, rsi, sma, williams_r
 
 st.set_page_config(page_title="Chart — Stocks Tracker", page_icon=":material/candlestick_chart:",
                    layout="wide")
@@ -37,7 +37,11 @@ overlays = st.sidebar.multiselect(
     ["SMA(20)", "SMA(50)", "EMA(20)", "Bollinger(20, 2)"],
     default=["SMA(50)"],
 )
-lower_panel = st.sidebar.radio("Lower panel", ["Volume", "RSI(14)", "MACD"], index=0)
+lower_panel = st.sidebar.radio(
+    "Lower panel",
+    ["Volume", "RSI(14)", "MACD", "Williams %R(14)"],
+    index=0,
+)
 
 df = load_prices(symbol, start=start, end=end)
 if df.empty:
@@ -95,7 +99,7 @@ elif lower_panel == "RSI(14)":
                   row=2, col=1)
     fig.add_hline(y=70, line_dash="dash", line_color=COLORS["muted"], row=2, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color=COLORS["muted"], row=2, col=1)
-else:  # MACD
+elif lower_panel == "MACD":
     m = macd(close)
     fig.add_trace(go.Scatter(x=df.index, y=m.macd, name="MACD", showlegend=False,
                              line=dict(color=COLORS["primary"], width=1.4)), row=2, col=1)
@@ -104,6 +108,13 @@ else:  # MACD
     hist_colors = [COLORS["candle_up"] if v >= 0 else COLORS["candle_down"] for v in m.hist]
     fig.add_trace(go.Bar(x=df.index, y=m.hist, name="Hist", showlegend=False,
                          marker=dict(color=hist_colors, opacity=0.55)), row=2, col=1)
+else:  # Williams %R(14)
+    wr = williams_r(df["high"], df["low"], df["close"], 14)
+    fig.add_trace(go.Scatter(x=df.index, y=wr, name="%R(14)", showlegend=False,
+                             line=dict(color=COLORS["primary"], width=1.4)),
+                  row=2, col=1)
+    fig.add_hline(y=-20, line_dash="dash", line_color=COLORS["muted"], row=2, col=1)
+    fig.add_hline(y=-80, line_dash="dash", line_color=COLORS["muted"], row=2, col=1)
 
 fig.update_layout(
     template=plotly_template(),

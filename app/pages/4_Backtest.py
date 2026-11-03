@@ -2,13 +2,28 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
 from stocks_tracker.app_theme import COLORS, plotly_template, positive_negative
 from stocks_tracker.backtest import run_from_prices
 from stocks_tracker.strategies import STRATEGIES
+from stocks_tracker.strategy_overlays import overlay_for, primary_indicator_series
+
+
+def _grid(center: float, lo: float, hi: float, step: float, kind: type, n: int = 5) -> list:
+    """Return n sample points centered on `center`, clamped to [lo, hi], as ints or floats."""
+    half = (n - 1) / 2
+    raw = [center + (i - half) * step * 2 for i in range(n)]
+    if kind is int:
+        pts = sorted({int(round(max(lo, min(hi, v)))) for v in raw})
+    else:
+        pts = sorted({round(max(lo, min(hi, v)), 4) for v in raw})
+    return pts
 
 st.set_page_config(page_title="Backtest — Stocks Tracker",
                    page_icon=":material/insights:", layout="wide")
@@ -105,21 +120,29 @@ if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
 
     st.write("")
 
-    # --- Equity curve -------------------------------------------------------
+    # --- Equity curve + indicator panel ------------------------------------
     eq = res["equity_curve"]
     buy_hold = df["adj_close"] / df["adj_close"].iloc[0] * float(initial_cash)
-    fig = go.Figure()
+    overlay = overlay_for(strategy_key, params, df)
+
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35],
+        vertical_spacing=0.04,
+        subplot_titles=("Equity curve", overlay.panel_title or ""),
+    )
+
     fig.add_trace(go.Scatter(
         x=buy_hold.index, y=buy_hold, name="Buy & hold",
         line=dict(width=1.3, color=COLORS["muted"], dash="dot"),
         hovertemplate="%{y:$,.0f}<extra>Buy & hold</extra>",
-    ))
+    ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=eq.index, y=eq, name="Strategy",
         line=dict(width=2.2, color=COLORS["primary"]),
         fill="tozeroy", fillcolor="rgba(94, 179, 255, 0.08)",
         hovertemplate="%{y:$,.0f}<extra>Strategy</extra>",
-    ))
+    ), row=1, col=1)
+
     entries = res["entries"][res["entries"]]
     exits = res["exits"][res["exits"]]
     fig.add_trace(go.Scatter(
@@ -128,26 +151,152 @@ if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
                     line=dict(color=COLORS["bg"], width=1)),
         name="Entry",
         hovertemplate="Entry · %{x|%b %d, %Y}<extra></extra>",
-    ))
+    ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=exits.index, y=eq.reindex(exits.index), mode="markers",
         marker=dict(color=COLORS["negative"], symbol="triangle-down", size=10,
                     line=dict(color=COLORS["bg"], width=1)),
         name="Exit",
         hovertemplate="Exit · %{x|%b %d, %Y}<extra></extra>",
-    ))
+    ), row=1, col=1)
+
+    # Indicator panel: either dedicated oscillator pane (RSI, %R) or
+    # price-chart overlays repeated (SMA cross, Bollinger).
+    price_overlays = [ln for ln in overlay.lines if ln.where == "price"]
+    panel_lines = [ln for ln in overlay.lines if ln.where == "panel"]
+    if price_overlays:
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df["adj_close"], name="Price",
+            line=dict(width=1.4, color=COLORS["text"]),
+            hovertemplate="%{y:$,.2f}<extra>Price</extra>",
+        ), row=2, col=1)
+        for ln in price_overlays:
+            fig.add_trace(go.Scatter(
+                x=ln.series.index, y=ln.series, name=ln.label,
+                line=dict(width=1.3, dash=ln.dash or "solid"),
+            ), row=2, col=1)
+    for ln in panel_lines:
+        fig.add_trace(go.Scatter(
+            x=ln.series.index, y=ln.series, name=ln.label,
+            line=dict(width=1.6, color=COLORS["primary"], dash=ln.dash or "solid"),
+        ), row=2, col=1)
+    for y in overlay.hlines:
+        fig.add_hline(y=y, line_dash="dash", line_color=COLORS["muted"], row=2, col=1)
+    # Entry/exit markers mirrored on the indicator panel to make timing obvious.
+    indicator = primary_indicator_series(strategy_key, params, df)
+    if indicator is not None:
+        fig.add_trace(go.Scatter(
+            x=entries.index, y=indicator.reindex(entries.index), mode="markers",
+            marker=dict(color=COLORS["positive"], symbol="triangle-up", size=9,
+                        line=dict(color=COLORS["bg"], width=1)),
+            showlegend=False,
+            hovertemplate=f"Entry · %{{x|%b %d, %Y}}<br>{indicator.name}=%{{y:.2f}}<extra></extra>",
+        ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=exits.index, y=indicator.reindex(exits.index), mode="markers",
+            marker=dict(color=COLORS["negative"], symbol="triangle-down", size=9,
+                        line=dict(color=COLORS["bg"], width=1)),
+            showlegend=False,
+            hovertemplate=f"Exit · %{{x|%b %d, %Y}}<br>{indicator.name}=%{{y:.2f}}<extra></extra>",
+        ), row=2, col=1)
+
     fig.update_layout(
         template=plotly_template(),
-        height=460,
+        height=640,
         hovermode="x unified",
-        yaxis=dict(tickprefix="$", tickformat=",.0f"),
+        margin=dict(l=10, r=10, t=40, b=10),
     )
+    fig.update_yaxes(tickprefix="$", tickformat=",.0f", row=1, col=1)
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- Trade log ----------------------------------------------------------
+    # --- Trade log with indicator-at-entry/exit ----------------------------
     with st.expander("Trade log"):
         pf = res["portfolio"]
-        st.dataframe(pf.trades.records_readable, use_container_width=True, hide_index=True)
+        trades = pf.trades.records_readable.copy()
+        if indicator is not None and not trades.empty:
+            if "Entry Timestamp" in trades.columns:
+                trades[f"{indicator.name} @ entry"] = (
+                    indicator.reindex(pd.to_datetime(trades["Entry Timestamp"])).to_numpy()
+                )
+            if "Exit Timestamp" in trades.columns:
+                trades[f"{indicator.name} @ exit"] = (
+                    indicator.reindex(pd.to_datetime(trades["Exit Timestamp"])).to_numpy()
+                )
+        st.dataframe(trades, use_container_width=True, hide_index=True)
+
+    # --- Parameter sensitivity heatmap -------------------------------------
+    #
+    # Vary the first two numeric params across a 5-point grid centred on the
+    # user's current selection. 25 backtests on a cached DataFrame; keep the
+    # other params fixed to the current values so the grid is interpretable.
+    numeric_params = [p for p in spec.params if p.kind in (int, float)]
+    if len(numeric_params) >= 2:
+        p1, p2 = numeric_params[0], numeric_params[1]
+        with st.expander(
+            f"Parameter sensitivity · {p1.name} × {p2.name}",
+            expanded=False,
+        ):
+            st.caption(
+                f"Re-runs the backtest across a 5×5 grid around your "
+                f"current `{p1.name}={params[p1.name]}` and "
+                f"`{p2.name}={params[p2.name]}`. Other params stay fixed."
+            )
+            run_grid = st.button(
+                "Run grid (25 backtests)", key="run_sensitivity",
+                use_container_width=True,
+            )
+            if run_grid:
+                p1_values = _grid(params[p1.name], p1.min, p1.max, p1.step, p1.kind)
+                p2_values = _grid(params[p2.name], p2.min, p2.max, p2.step, p2.kind)
+                metric_name = "Sharpe"
+                sharpe = np.full((len(p2_values), len(p1_values)), np.nan)
+                ret = np.full_like(sharpe, np.nan)
+                progress = st.progress(0.0, text="Running grid...")
+                total = len(p1_values) * len(p2_values)
+                k = 0
+                for i, v2 in enumerate(p2_values):
+                    for j, v1 in enumerate(p1_values):
+                        k += 1
+                        progress.progress(k / total, text=f"[{k}/{total}]")
+                        trial = dict(params)
+                        trial[p1.name] = v1
+                        trial[p2.name] = v2
+                        try:
+                            r = run_from_prices(
+                                symbol, df, strategy_key, params=trial,
+                                initial_cash=float(initial_cash),
+                                fees=fees_bps / 10_000,
+                            )
+                            sharpe[i, j] = r["metrics"]["sharpe_ratio"]
+                            ret[i, j] = r["metrics"]["total_return_pct"]
+                        except Exception:  # noqa: BLE001
+                            pass
+                progress.empty()
+
+                g1, g2 = st.columns(2)
+                for col, data, title, fmt in [
+                    (g1, sharpe, f"Sharpe ({metric_name})", ".2f"),
+                    (g2, ret, "Total return %", ".1f"),
+                ]:
+                    hm = go.Figure(go.Heatmap(
+                        z=data, x=p1_values, y=p2_values,
+                        colorscale="RdBu", zmid=0,
+                        text=data, texttemplate="%{text:" + fmt + "}",
+                        hovertemplate=(
+                            f"{p1.name}=%{{x}}<br>{p2.name}=%{{y}}"
+                            f"<br>{title}=%{{z:{fmt}}}<extra></extra>"
+                        ),
+                        colorbar=dict(thickness=12),
+                    ))
+                    hm.update_layout(
+                        template=plotly_template(),
+                        height=360,
+                        title=dict(text=title, font=dict(size=14)),
+                        xaxis=dict(title=p1.name, type="category"),
+                        yaxis=dict(title=p2.name, type="category"),
+                        margin=dict(l=10, r=10, t=40, b=10),
+                    )
+                    col.plotly_chart(hm, use_container_width=True)
 else:
     st.info(
         "Pick a ticker, strategy, and parameters in the sidebar, then press "
