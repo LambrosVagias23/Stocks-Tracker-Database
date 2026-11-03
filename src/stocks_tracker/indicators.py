@@ -53,3 +53,11 @@ def bbands(close: pd.Series, length: int = 20, std: float = 2.0) -> BBResult:
         middle=b.middle.rename(f"BB_mid({length})"),
         lower=b.lower.rename(f"BB_lower({length},{std})"),
     )
+
+
+def williams_r(
+    high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14
+) -> pd.Series:
+    hh = high.rolling(length).max()
+    ll = low.rolling(length).min()
+    return (-100 * (hh - close) / (hh - ll)).rename(f"WR{length}")

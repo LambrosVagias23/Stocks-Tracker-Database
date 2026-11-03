@@ -85,7 +85,10 @@ def run_from_prices(
     spec = STRATEGIES[strategy_key]
 
     close = df["adj_close"]
-    sig: Signals = spec.fn(close, **(params or {}))
+    if spec.inputs == "ohlc":
+        sig: Signals = spec.fn(df["high"], df["low"], df["close"], **(params or {}))
+    else:
+        sig = spec.fn(close, **(params or {}))
 
     pf = vbt.Portfolio.from_signals(
         close=close,

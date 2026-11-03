@@ -12,7 +12,7 @@ from typing import Callable, NamedTuple
 
 import pandas as pd
 
-from stocks_tracker.indicators import bbands, rsi, sma
+from stocks_tracker.indicators import bbands, rsi, sma, williams_r
 
 
 class Signals(NamedTuple):
@@ -35,6 +35,9 @@ class StrategySpec(NamedTuple):
     fn: Callable[..., Signals]
     params: list[Param]
     description: str
+    # "close" (default) → fn is called as fn(close, **params).
+    # "ohlc"            → fn is called as fn(high, low, close, **params).
+    inputs: str = "close"
 
 
 # ---- strategies -------------------------------------------------------------
@@ -76,6 +79,25 @@ def bollinger_breakout(
     return Signals(entries.fillna(False), exits.fillna(False))
 
 
+def williams_r_mean_reversion(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    period: int = 14,
+    oversold: float = -80,
+    overbought: float = -20,
+) -> Signals:
+    """Enter long when %R crosses below `oversold`; exit when it crosses above `overbought`.
+
+    Williams %R is bounded in [-100, 0]: 0 = at period high, -100 = at period low.
+    Standard thresholds: < -80 is oversold, > -20 is overbought.
+    """
+    wr = williams_r(high, low, close, int(period))
+    entries = (wr.shift(1) >= oversold) & (wr < oversold)
+    exits = (wr.shift(1) <= overbought) & (wr > overbought)
+    return Signals(entries.fillna(False), exits.fillna(False))
+
+
 # ---- registry ---------------------------------------------------------------
 
 STRATEGIES: dict[str, StrategySpec] = {
@@ -109,5 +131,17 @@ STRATEGIES: dict[str, StrategySpec] = {
             Param("std", 2.0, 1.0, 4.0, 0.1, float),
         ],
         description="Buy when price breaks above the upper band; exit on cross below the middle.",
+    ),
+    "williams_r_mean_reversion": StrategySpec(
+        key="williams_r_mean_reversion",
+        label="Williams %R Mean Reversion",
+        fn=williams_r_mean_reversion,
+        params=[
+            Param("period", 14, 2, 50, 1, int),
+            Param("oversold", -80, -99, -50, 1, float),
+            Param("overbought", -20, -50, -1, 1, float),
+        ],
+        description="Buy when %R crosses below the oversold line (-80); exit when it crosses above the overbought line (-20).",
+        inputs="ohlc",
     ),
 }

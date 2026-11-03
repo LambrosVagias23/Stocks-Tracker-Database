@@ -4,12 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stocks_tracker.indicators import bbands, ema, macd, rsi, sma
+from stocks_tracker.indicators import bbands, ema, macd, rsi, sma, williams_r
 from stocks_tracker.strategies import (
     STRATEGIES,
     bollinger_breakout,
     rsi_mean_reversion,
     sma_crossover,
+    williams_r_mean_reversion,
 )
 
 
@@ -24,6 +25,21 @@ def synth_close() -> pd.Series:
     return pd.Series(
         trend + cycle + noise,
         index=pd.date_range("2024-01-01", periods=t.size, freq="B"),
+    )
+
+
+@pytest.fixture
+def synth_ohlc(synth_close) -> pd.DataFrame:
+    """Derive plausible high/low bands around the synthetic close series."""
+    rng = np.random.default_rng(1)
+    spread = np.abs(rng.normal(0.8, 0.3, size=len(synth_close)))
+    return pd.DataFrame(
+        {
+            "high": synth_close + spread,
+            "low": synth_close - spread,
+            "close": synth_close,
+        },
+        index=synth_close.index,
     )
 
 
@@ -55,9 +71,27 @@ def test_bollinger_breakout_fires(synth_close):
     assert sig.entries.sum() + sig.exits.sum() >= 1
 
 
+def test_williams_r_bounded_and_named(synth_ohlc):
+    wr = williams_r(synth_ohlc["high"], synth_ohlc["low"], synth_ohlc["close"], 14)
+    assert wr.name == "WR14"
+    valid = wr.dropna()
+    assert (valid >= -100).all() and (valid <= 0).all()
+
+
+def test_williams_r_mean_reversion_fires(synth_ohlc):
+    sig = williams_r_mean_reversion(
+        synth_ohlc["high"], synth_ohlc["low"], synth_ohlc["close"],
+        period=14, oversold=-80, overbought=-20,
+    )
+    assert sig.entries.sum() + sig.exits.sum() >= 1
+    assert not (sig.entries & sig.exits).any()
+
+
 def test_strategy_registry_matches_functions():
     assert STRATEGIES["sma_crossover"].fn is sma_crossover
     assert STRATEGIES["rsi_mean_reversion"].fn is rsi_mean_reversion
     assert STRATEGIES["bollinger_breakout"].fn is bollinger_breakout
+    assert STRATEGIES["williams_r_mean_reversion"].fn is williams_r_mean_reversion
+    assert STRATEGIES["williams_r_mean_reversion"].inputs == "ohlc"
     for spec in STRATEGIES.values():
         assert spec.params, f"{spec.key} has no parameters"
