@@ -106,6 +106,7 @@ PAGES = [
     (4, "Backtest", "Backtest", "insights",          "Run a strategy on one ticker. Metrics, equity curve, and trade log."),
     (5, "Screener", "Screener", "filter_list",       "Run one strategy across a slice of the universe and rank the results."),
     (6, "Admin",    "Admin",    "settings",          "Refresh universe, run daily updates, or trigger a full backfill (local-only)."),
+    (7, "Glossary", "Glossary", "menu_book",         "Plain-English definitions of every indicator, strategy, and metric used in the app."),
 ]
 
 st.subheader("Explore")
