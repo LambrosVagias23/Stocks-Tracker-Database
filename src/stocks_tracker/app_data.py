@@ -59,7 +59,7 @@ def load_tickers() -> pd.DataFrame:
     sb = get_client()
     rows = _paginate(
         sb.table("tickers")
-        .select("symbol, name, index_membership, active")
+        .select("symbol, name, index_membership, active, market_cap")
         .order("symbol")
     )
     return pd.DataFrame(rows)

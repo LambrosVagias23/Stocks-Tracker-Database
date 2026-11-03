@@ -43,6 +43,12 @@ if tickers.empty or state.empty:
     st.error("Need both a populated universe and backfilled prices before screening.")
     st.stop()
 
+cap_by_symbol: dict[str, float | None] = (
+    dict(zip(tickers["symbol"], tickers["market_cap"], strict=False))
+    if "market_cap" in tickers.columns
+    else {}
+)
+
 merged = tickers.merge(state[["symbol", "last_bar"]], on="symbol", how="inner")
 merged = merged[merged["last_bar"].notna()]
 if merged.empty:
@@ -80,7 +86,7 @@ rank_by = st.sidebar.selectbox(
     "Rank by",
     [
         "sharpe_ratio", "annualized_return_pct", "calmar_ratio", "total_return_pct",
-        "ytd_pct", "m6_pct", "m3_pct",
+        "ytd_pct", "m6_pct", "m3_pct", "market_cap",
     ],
     index=0,
 )
@@ -96,7 +102,12 @@ if st.sidebar.button("Run screener", type="primary"):
                 continue
             res = run_from_prices(symbol, df, strategy_key, params=params)
             m = res["metrics"]
-            rows.append({"symbol": symbol, **m, **_period_returns(df)})
+            rows.append({
+                "symbol": symbol,
+                **m,
+                **_period_returns(df),
+                "market_cap": cap_by_symbol.get(symbol),
+            })
         except Exception as exc:  # noqa: BLE001
             st.warning(f"{symbol}: {exc}")
     progress.empty()
@@ -126,6 +137,7 @@ if st.sidebar.button("Run screener", type="primary"):
             "ytd_pct": st.column_config.NumberColumn("YTD %", format="%+.2f"),
             "m6_pct": st.column_config.NumberColumn("6M %", format="%+.2f"),
             "m3_pct": st.column_config.NumberColumn("3M %", format="%+.2f"),
+            "market_cap": st.column_config.NumberColumn("Market cap", format="compact"),
         },
     )
     st.download_button(
