@@ -9,6 +9,27 @@ from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
 from stocks_tracker.backtest import run_from_prices
 from stocks_tracker.strategies import STRATEGIES
 
+
+def _period_returns(df: pd.DataFrame) -> dict[str, float]:
+    """YTD / 6-month / 3-month buy-and-hold return on adj_close, in %."""
+    last = df.index[-1]
+    last_close = float(df["adj_close"].iloc[-1])
+    year_start = pd.Timestamp(year=last.year, month=1, day=1)
+
+    def pct(start_ts: pd.Timestamp) -> float:
+        sub = df[df.index >= start_ts]
+        if len(sub) < 2:
+            return float("nan")
+        base = float(sub["adj_close"].iloc[0])
+        return (last_close / base - 1) * 100 if base else float("nan")
+
+    return {
+        "ytd_pct": pct(year_start),
+        "m6_pct": pct(last - pd.Timedelta(days=180)),
+        "m3_pct": pct(last - pd.Timedelta(days=90)),
+    }
+
+
 st.set_page_config(page_title="Screener — Stocks Tracker", layout="wide")
 st.title("Strategy screener")
 st.caption(
@@ -57,7 +78,10 @@ start = st.sidebar.date_input("Start", today - timedelta(days=365 * 3))
 end = st.sidebar.date_input("End", today)
 rank_by = st.sidebar.selectbox(
     "Rank by",
-    ["sharpe_ratio", "annualized_return_pct", "calmar_ratio", "total_return_pct"],
+    [
+        "sharpe_ratio", "annualized_return_pct", "calmar_ratio", "total_return_pct",
+        "ytd_pct", "m6_pct", "m3_pct",
+    ],
     index=0,
 )
 
@@ -72,7 +96,7 @@ if st.sidebar.button("Run screener", type="primary"):
                 continue
             res = run_from_prices(symbol, df, strategy_key, params=params)
             m = res["metrics"]
-            rows.append({"symbol": symbol, **m})
+            rows.append({"symbol": symbol, **m, **_period_returns(df)})
         except Exception as exc:  # noqa: BLE001
             st.warning(f"{symbol}: {exc}")
     progress.empty()
@@ -99,6 +123,9 @@ if st.sidebar.button("Run screener", type="primary"):
             "win_rate_pct": st.column_config.NumberColumn("Win %", format="%.1f"),
             "num_trades": "Trades",
             "max_exposure_pct": st.column_config.NumberColumn("Exposure %", format="%.1f"),
+            "ytd_pct": st.column_config.NumberColumn("YTD %", format="%+.2f"),
+            "m6_pct": st.column_config.NumberColumn("6M %", format="%+.2f"),
+            "m3_pct": st.column_config.NumberColumn("3M %", format="%+.2f"),
         },
     )
     st.download_button(
