@@ -9,6 +9,7 @@ from stocks_tracker.strategies import (
     STRATEGIES,
     bollinger_breakout,
     rsi_mean_reversion,
+    rsi_wr_double_oversold,
     sma_crossover,
     williams_r_mean_reversion,
 )
@@ -87,11 +88,29 @@ def test_williams_r_mean_reversion_fires(synth_ohlc):
     assert not (sig.entries & sig.exits).any()
 
 
+def test_rsi_wr_double_oversold_requires_both_conditions(synth_ohlc):
+    """Composite strategy must only fire when BOTH indicators are oversold."""
+    sig_tight = rsi_wr_double_oversold(
+        synth_ohlc["high"], synth_ohlc["low"], synth_ohlc["close"],
+        rsi_period=2, rsi_oversold=5, wr_period=2, wr_oversold=-95,
+    )
+    # Looser thresholds must produce strictly more or equal entries,
+    # proving the AND semantics (loosening either expands the signal set).
+    sig_loose = rsi_wr_double_oversold(
+        synth_ohlc["high"], synth_ohlc["low"], synth_ohlc["close"],
+        rsi_period=2, rsi_oversold=20, wr_period=2, wr_oversold=-80,
+    )
+    assert sig_loose.entries.sum() >= sig_tight.entries.sum()
+    assert not (sig_tight.entries & sig_tight.exits).any()
+
+
 def test_strategy_registry_matches_functions():
     assert STRATEGIES["sma_crossover"].fn is sma_crossover
     assert STRATEGIES["rsi_mean_reversion"].fn is rsi_mean_reversion
     assert STRATEGIES["bollinger_breakout"].fn is bollinger_breakout
     assert STRATEGIES["williams_r_mean_reversion"].fn is williams_r_mean_reversion
     assert STRATEGIES["williams_r_mean_reversion"].inputs == "ohlc"
+    assert STRATEGIES["rsi_wr_double_oversold"].fn is rsi_wr_double_oversold
+    assert STRATEGIES["rsi_wr_double_oversold"].inputs == "ohlc"
     for spec in STRATEGIES.values():
         assert spec.params, f"{spec.key} has no parameters"

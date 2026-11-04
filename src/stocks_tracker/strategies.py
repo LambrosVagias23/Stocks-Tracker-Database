@@ -98,6 +98,29 @@ def williams_r_mean_reversion(
     return Signals(entries.fillna(False), exits.fillna(False))
 
 
+def rsi_wr_double_oversold(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    rsi_period: int = 2,
+    rsi_oversold: float = 5,
+    rsi_overbought: float = 70,
+    wr_period: int = 2,
+    wr_oversold: float = -95,
+) -> Signals:
+    """Composite Connors-style ultra-oversold entry: BOTH RSI and %R must be
+    deeply oversold on the same bar. Exit when RSI reverts above `rsi_overbought`.
+
+    Typical config: RSI(2) < 5 AND %R(2) < -95 → classic pullback-in-uptrend
+    setup, usually combined with a time-based exit (max_hold_days).
+    """
+    r = rsi(close, int(rsi_period))
+    wr = williams_r(high, low, close, int(wr_period))
+    entries = (r < rsi_oversold) & (wr < wr_oversold)
+    exits = (r.shift(1) <= rsi_overbought) & (r > rsi_overbought)
+    return Signals(entries.fillna(False), exits.fillna(False))
+
+
 # ---- registry ---------------------------------------------------------------
 
 STRATEGIES: dict[str, StrategySpec] = {
@@ -142,6 +165,20 @@ STRATEGIES: dict[str, StrategySpec] = {
             Param("overbought", -20, -50, -1, 1, float),
         ],
         description="Buy when %R crosses below the oversold line (-80); exit when it crosses above the overbought line (-20).",
+        inputs="ohlc",
+    ),
+    "rsi_wr_double_oversold": StrategySpec(
+        key="rsi_wr_double_oversold",
+        label="RSI + %R Double Oversold (Connors)",
+        fn=rsi_wr_double_oversold,
+        params=[
+            Param("rsi_period", 2, 2, 20, 1, int),
+            Param("rsi_oversold", 5, 1, 30, 1, float),
+            Param("rsi_overbought", 70, 50, 95, 1, float),
+            Param("wr_period", 2, 2, 20, 1, int),
+            Param("wr_oversold", -95, -100, -60, 1, float),
+        ],
+        description="Buy only when BOTH RSI and Williams %R are deeply oversold on the same bar. Pair with a max-hold-days exit (Connors style).",
         inputs="ohlc",
     ),
 }

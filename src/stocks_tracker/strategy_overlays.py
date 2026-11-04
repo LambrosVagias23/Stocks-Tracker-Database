@@ -80,6 +80,20 @@ def overlay_for(strategy_key: str, params: dict[str, Any], df: pd.DataFrame) -> 
             hlines=[oversold, overbought],
             panel_title="Williams %R",
         )
+    if strategy_key == "rsi_wr_double_oversold":
+        rsi_p = int(params.get("rsi_period", 2))
+        wr_p = int(params.get("wr_period", 2))
+        # Show RSI as the primary oscillator (both visible is noisy); the
+        # trade log rows and the %R value make the composite legible.
+        r = rsi(close, rsi_p)
+        return StrategyOverlay(
+            lines=[IndicatorLine(f"RSI({rsi_p})", r)],
+            hlines=[
+                float(params.get("rsi_oversold", 5)),
+                float(params.get("rsi_overbought", 70)),
+            ],
+            panel_title=f"RSI (entry needs RSI<ovs AND %R({wr_p})<{params.get('wr_oversold', -95)})",
+        )
     return StrategyOverlay(lines=[], hlines=[], panel_title="")
 
 
@@ -104,4 +118,6 @@ def primary_indicator_series(
     if strategy_key == "williams_r_mean_reversion":
         return williams_r(df["high"], df["low"], df["close"],
                           int(params.get("period", 14))).rename("%R")
+    if strategy_key == "rsi_wr_double_oversold":
+        return rsi(close, int(params.get("rsi_period", 2))).rename("RSI")
     return None
