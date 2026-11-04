@@ -71,12 +71,19 @@ st.sidebar.header("Screener setup")
 idx_options = ["SP500", "NDX", "R2000"]
 chosen_idx = st.sidebar.multiselect("Index membership", idx_options, default=["SP500"])
 pool_mask = merged["index_membership"].apply(lambda ms: any(m in chosen_idx for m in (ms or [])))
-pool = sorted(set(merged.loc[pool_mask, "symbol"]))
+# Sort pool by market cap descending so "Max symbols" naturally picks the
+# top N by cap (largest first). Tickers with NULL cap sink to the bottom.
+pool_df = (
+    merged.loc[pool_mask]
+    .drop_duplicates("symbol")
+    .sort_values("market_cap", ascending=False, na_position="last")
+)
+pool = pool_df["symbol"].tolist()
 
 max_universe = st.sidebar.slider("Max symbols to backtest", 5, max(5, len(pool)),
                                  min(50, len(pool)))
 pool = pool[:max_universe]
-st.sidebar.caption(f"Backtesting up to {len(pool)} symbols (before pre-filters)")
+st.sidebar.caption(f"Backtesting up to {len(pool)} symbols (top by market cap)")
 
 # --- Pre-filters: skip tickers that don't match these criteria before the
 # heavy backtest step. Defaults are permissive — nothing is filtered until
@@ -235,5 +242,59 @@ if st.sidebar.button("Run screener", type="primary"):
         file_name=f"screener_{strategy_key}.csv",
         mime="text/csv",
     )
+
+    # --- Top N by market cap view ------------------------------------------
+    #
+    # Same results, just filtered to the N largest names so you can see at a
+    # glance "if you ran this strategy only on the N biggest caps in the pool,
+    # how did it do?". Keeps the Screener's per-ticker-independent semantics
+    # — for shared-cash portfolio sizing use the Portfolio page.
+    with_cap = results[results["market_cap"].notna()]
+    if not with_cap.empty:
+        st.divider()
+        st.subheader("Top N by market cap (view only)")
+        st.caption(
+            "Same per-ticker results, filtered to the N largest by cap. "
+            "For a true shared-cash portfolio with top-N-by-cap daily "
+            "selection, use the **Portfolio** page."
+        )
+        max_n = min(20, len(with_cap))
+        top_n_view = st.slider("N", 1, max_n, min(5, max_n), key="scr_topn_view")
+        top_view = with_cap.nlargest(top_n_view, "market_cap").reset_index(drop=True)
+
+        # Mini aggregates — "if you equal-weighted these N, what would the
+        # average per-ticker metrics be?"
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Avg total return",
+                   f"{top_view['total_return_pct'].mean():+.2f}%")
+        mc2.metric("Avg Sharpe",
+                   f"{top_view['sharpe_ratio'].mean():.2f}")
+        mc3.metric("Avg win rate",
+                   f"{top_view['win_rate_pct'].mean():.1f}%")
+        mc4.metric("Total trades",
+                   f"{int(top_view['num_trades'].sum())}")
+
+        st.dataframe(
+            top_view,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "symbol": "Symbol",
+                "total_return_pct": st.column_config.NumberColumn("Total %", format="%.2f"),
+                "annualized_return_pct": st.column_config.NumberColumn("Annualized %", format="%.2f"),
+                "sharpe_ratio": st.column_config.NumberColumn("Sharpe", format="%.2f"),
+                "sortino_ratio": st.column_config.NumberColumn("Sortino", format="%.2f"),
+                "calmar_ratio": st.column_config.NumberColumn("Calmar", format="%.2f"),
+                "max_drawdown_pct": st.column_config.NumberColumn("Max DD %", format="%.2f"),
+                "win_rate_pct": st.column_config.NumberColumn("Win %", format="%.1f"),
+                "num_trades": "Trades",
+                "max_exposure_pct": st.column_config.NumberColumn("Exposure %", format="%.1f"),
+                "ytd_pct": st.column_config.NumberColumn("YTD %", format="%+.2f"),
+                "m6_pct": st.column_config.NumberColumn("6M %", format="%+.2f"),
+                "m3_pct": st.column_config.NumberColumn("3M %", format="%+.2f"),
+                "current_wr": st.column_config.NumberColumn("%R(14)", format="%.1f"),
+                "market_cap": st.column_config.NumberColumn("Market cap", format="compact"),
+            },
+        )
 else:
     st.info("Configure in the sidebar, then press **Run screener**.")
