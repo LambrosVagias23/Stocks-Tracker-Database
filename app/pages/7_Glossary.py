@@ -144,6 +144,14 @@ term(
     "crosses above the overbought line (default −20). Same mean-reversion idea "
     "as RSI but reacts faster.",
 )
+term(
+    "RSI + %R Double Oversold (Connors)",
+    "Composite: fires only when BOTH RSI and Williams %R are deeply oversold "
+    "on the same bar. The canonical Connors setup uses RSI(2) < 5 AND %R(2) < "
+    "−95 — ultra-strict to keep the signal count low but the quality high. "
+    "Usually paired with a max-hold exit of 5-10 days.",
+    "entry = RSI(n₁) < ovs₁  AND  %R(n₂) < ovs₂",
+)
 
 st.divider()
 
@@ -263,6 +271,14 @@ term(
     "exit on the trend-follow side.",
     "exit if close ≥ entry × (1 + TP%)",
 )
+term(
+    "Max hold days (time stop)",
+    "Force an exit N bars after the entry, regardless of price. Caps how long "
+    "capital stays locked up in a trade that isn't resolving. Essential for "
+    "Connors-style mean-reversion where the thesis is \"this should snap "
+    "back within a week or two — if not, exit and move on\".",
+    "forced_exit[t+N] = entry[t]",
+)
 
 st.divider()
 
@@ -304,6 +320,43 @@ term(
     "Min / Max market cap ($B)",
     "Size filter. Set min = 10 to keep only large-caps; set max = 2 to keep "
     "only small-caps. Leave either at 0 to not filter on that side.",
+)
+
+st.divider()
+
+# --- Portfolio backtest ----------------------------------------------------
+
+st.subheader("Portfolio backtest")
+st.caption("Terms specific to the Portfolio page, which runs one strategy "
+           "across many tickers from a shared cash pool.")
+
+term(
+    "Top N by market cap",
+    "On any bar where more candidates signal than the portfolio has slots for, "
+    "keep only the N largest by market cap. Rationale: large caps tend to be "
+    "more liquid and mean-revert more reliably; this is a quality filter when "
+    "the strategy is too permissive.",
+)
+term(
+    "Per-bar pre-filter",
+    "Unlike the Screener's pre-filters (which look at the window-end snapshot), "
+    "the Portfolio page checks these rolling metrics *on the bar of the "
+    "signal*. A ticker that was down YTD in March but up in September is "
+    "eligible only in September. No lookahead bias.",
+)
+term(
+    "Shared cash pool",
+    "All positions draw from one wallet. With Top N = 2 and size = 1/N, each "
+    "new entry targets 50% of current cash. If two positions are already open, "
+    "no new entry can fire until one exits — the portfolio is always ≤ N "
+    "positions, equally weighted on entry.",
+)
+term(
+    "Buy & hold benchmark (equal-weight pool)",
+    "The dotted grey line on the Portfolio equity curve. It's the average "
+    "price path across the pool, normalised to the starting cash — \"what if "
+    "you just owned the whole universe in equal slices\". Compare the "
+    "strategy line against this to see if the strategy earns its complexity.",
 )
 
 st.caption(
