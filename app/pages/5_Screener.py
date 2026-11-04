@@ -138,6 +138,9 @@ sl_trail = st.sidebar.checkbox("Trailing stop", value=False,
 use_tp = st.sidebar.checkbox("Take profit", value=False, key="scr_tp")
 tp_pct = st.sidebar.slider("Take profit %", 0.5, 50.0, 10.0, 0.5,
                            disabled=not use_tp, key="scr_tp_pct") if use_tp else 0.0
+use_time = st.sidebar.checkbox("Max hold days", value=False, key="scr_time")
+max_hold = st.sidebar.slider("Hold days", 1, 60, 10, 1,
+                             disabled=not use_time, key="scr_max_hold") if use_time else 0
 
 if st.sidebar.button("Run screener", type="primary"):
     rows = []
@@ -182,6 +185,7 @@ if st.sidebar.button("Run screener", type="primary"):
                 sl_stop=(sl_pct / 100) if use_sl else None,
                 tp_stop=(tp_pct / 100) if use_tp else None,
                 sl_trail=sl_trail if use_sl else False,
+                max_hold_days=max_hold if use_time else None,
             )
             m = res["metrics"]
             rows.append({

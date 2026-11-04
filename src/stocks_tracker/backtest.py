@@ -74,16 +74,17 @@ def run_from_prices(
     sl_stop: float | None = None,   # fraction, e.g. 0.05 == 5% stop loss
     tp_stop: float | None = None,   # fraction, e.g. 0.10 == 10% take profit
     sl_trail: bool = False,
+    max_hold_days: int | None = None,  # force-exit N bars after entry
 ) -> dict[str, Any]:
     """Run `strategy_key` on a pre-fetched price DataFrame.
-
-    The DataFrame is expected to have a DatetimeIndex and at least an
-    ``adj_close`` column (as returned by :func:`load_prices` or the
-    Streamlit app's data layer).
 
     sl_stop / tp_stop are long-position stops expressed as a fraction of
     entry price (0.05 == exit if price drops 5% below entry). Pass None to
     disable. sl_trail=True makes the stop loss ratchet with new highs.
+
+    max_hold_days forces an exit N bars after each entry. Implemented by OR-ing
+    `entries.shift(N)` into the exits signal; vectorbt's state machine ignores
+    exits while flat, so the forced exit only fires if we're still holding.
     """
     if strategy_key not in STRATEGIES:
         raise KeyError(f"Unknown strategy {strategy_key!r}; see strategies.STRATEGIES")
@@ -97,6 +98,11 @@ def run_from_prices(
     else:
         sig = spec.fn(close, **(params or {}))
 
+    exits = sig.exits
+    if max_hold_days is not None and max_hold_days > 0:
+        forced = sig.entries.shift(int(max_hold_days), fill_value=False)
+        exits = (exits.astype(bool) | forced.astype(bool))
+
     stop_kwargs: dict[str, Any] = {}
     if sl_stop is not None and sl_stop > 0:
         stop_kwargs["sl_stop"] = float(sl_stop)
@@ -107,7 +113,7 @@ def run_from_prices(
     pf = vbt.Portfolio.from_signals(
         close=close,
         entries=sig.entries,
-        exits=sig.exits,
+        exits=exits,
         init_cash=initial_cash,
         fees=fees,
         freq="1D",
@@ -121,10 +127,11 @@ def run_from_prices(
         "metrics": _summary(pf),
         "equity_curve": pf.value(),
         "entries": sig.entries,
-        "exits": sig.exits,
+        "exits": exits,
         "portfolio": pf,
         "stops": {
             "sl_stop": sl_stop, "tp_stop": tp_stop, "sl_trail": sl_trail,
+            "max_hold_days": max_hold_days,
         },
     }
 
@@ -140,10 +147,12 @@ def run_backtest(
     sl_stop: float | None = None,
     tp_stop: float | None = None,
     sl_trail: bool = False,
+    max_hold_days: int | None = None,
 ) -> dict[str, Any]:
     """CLI/script entry point: pulls prices from Supabase via SQLAlchemy, then backtests."""
     df = load_prices(symbol, start=start, end=end)
     return run_from_prices(
         symbol, df, strategy_key, params, initial_cash, fees,
         sl_stop=sl_stop, tp_stop=tp_stop, sl_trail=sl_trail,
+        max_hold_days=max_hold_days,
     )

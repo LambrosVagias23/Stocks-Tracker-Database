@@ -159,6 +159,10 @@ use_tp = st.sidebar.checkbox("Take profit", value=False,
                               help="Exit if price rises this % above entry")
 tp_pct = st.sidebar.slider("Take profit %", 0.5, 50.0, 10.0, 0.5,
                            disabled=not use_tp) if use_tp else 0.0
+use_time = st.sidebar.checkbox("Max hold days", value=False,
+                                help="Force exit N bars after entry")
+max_hold = st.sidebar.slider("Hold days", 1, 60, 10, 1,
+                             disabled=not use_time) if use_time else 0
 
 if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
     df = load_prices(symbol, start=start, end=end)
@@ -172,6 +176,7 @@ if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
             sl_stop=(sl_pct / 100) if use_sl else None,
             tp_stop=(tp_pct / 100) if use_tp else None,
             sl_trail=sl_trail if use_sl else False,
+            max_hold_days=max_hold if use_time else None,
         )
     m = res["metrics"]
 
@@ -181,6 +186,8 @@ if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
         stop_bits.append(f"SL {sl_pct:g}%{' (trail)' if sl_trail else ''}")
     if use_tp:
         stop_bits.append(f"TP {tp_pct:g}%")
+    if use_time:
+        stop_bits.append(f"max hold {max_hold}d")
     stop_suffix = f" · {' · '.join(stop_bits)}" if stop_bits else ""
     st.markdown(
         f"<div style='color:{COLORS['muted']}; letter-spacing:0.1em; "
@@ -360,6 +367,7 @@ if st.sidebar.button("Run backtest", type="primary", use_container_width=True):
                                 sl_stop=(sl_pct / 100) if use_sl else None,
                                 tp_stop=(tp_pct / 100) if use_tp else None,
                                 sl_trail=sl_trail if use_sl else False,
+                                max_hold_days=max_hold if use_time else None,
                             )
                             sharpe[i, j] = r["metrics"]["sharpe_ratio"]
                             ret[i, j] = r["metrics"]["total_return_pct"]
