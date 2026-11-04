@@ -233,6 +233,39 @@ term(
 
 st.divider()
 
+# --- Risk management --------------------------------------------------------
+
+st.subheader("Risk management")
+st.caption("Exit rules layered on top of the strategy's own buy/sell signals. "
+           "Enabled from the Backtest and Screener sidebars under \"Risk "
+           "management\".")
+
+term(
+    "Stop loss (SL)",
+    "Automatic exit if the price drops a given percent below the entry price. "
+    "Caps the loss on any single trade. Tighter stops exit more often but on "
+    "smaller losses; looser stops give the trade room to breathe but a bad "
+    "trade hurts more. On the Backtest page a 5% stop is the default.",
+    "exit if close ≤ entry × (1 − SL%)",
+)
+term(
+    "Trailing stop",
+    "A stop loss that ratchets upward as price makes new highs, locking in "
+    "profit on the way up. It never moves down. Protects open profit on "
+    "a winning trade without exiting too early.",
+    "stop = max(stop, new_high × (1 − SL%))",
+)
+term(
+    "Take profit (TP)",
+    "Automatic exit when the price rises a given percent above the entry — "
+    "the mirror of a stop loss. Locks in gains early but caps the upside of "
+    "big winners. Common with mean-reversion strategies that have no natural "
+    "exit on the trend-follow side.",
+    "exit if close ≥ entry × (1 + TP%)",
+)
+
+st.divider()
+
 # --- Market cap -------------------------------------------------------------
 
 st.subheader("Market cap")
@@ -243,6 +276,34 @@ term(
     "if you bought every share at today's price. Rough buckets: large-cap "
     "> $10B, mid-cap $2–10B, small-cap $0.3–2B. In the Screener it's shown "
     "with compact units (e.g. 3.0T, 820M). Values refresh weekly.",
+)
+
+st.divider()
+
+# --- Screener pre-filters ---------------------------------------------------
+
+st.subheader("Screener pre-filters")
+st.caption("Knobs in the Screener's \"Pre-filters (optional)\" expander that "
+           "skip tickers before the slow backtest runs, so you focus compute on "
+           "the universe you actually care about.")
+
+term(
+    "Min YTD % / Min 6M % / Min 3M %",
+    "Buy-and-hold return thresholds. Set \"Min YTD % = 20\" to only backtest "
+    "the strategy on tickers that are already up at least 20% this year. "
+    "Useful for screening momentum names or avoiding broken ones.",
+)
+term(
+    "Current Williams %R range",
+    "Latest %R(14) must fall inside this band. Set (-100, -80) to only test "
+    "tickers currently oversold today; (-20, 0) to only test ones that just "
+    "hit the overbought zone. Pairs naturally with the Williams %R mean-"
+    "reversion strategy.",
+)
+term(
+    "Min / Max market cap ($B)",
+    "Size filter. Set min = 10 to keep only large-caps; set max = 2 to keep "
+    "only small-caps. Leave either at 0 to not filter on that side.",
 )
 
 st.caption(
