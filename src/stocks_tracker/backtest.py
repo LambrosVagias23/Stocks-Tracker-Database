@@ -71,12 +71,19 @@ def run_from_prices(
     params: dict[str, Any] | None = None,
     initial_cash: float = 10_000.0,
     fees: float = 0.0005,  # 5 bps round-trip
+    sl_stop: float | None = None,   # fraction, e.g. 0.05 == 5% stop loss
+    tp_stop: float | None = None,   # fraction, e.g. 0.10 == 10% take profit
+    sl_trail: bool = False,
 ) -> dict[str, Any]:
     """Run `strategy_key` on a pre-fetched price DataFrame.
 
     The DataFrame is expected to have a DatetimeIndex and at least an
     ``adj_close`` column (as returned by :func:`load_prices` or the
     Streamlit app's data layer).
+
+    sl_stop / tp_stop are long-position stops expressed as a fraction of
+    entry price (0.05 == exit if price drops 5% below entry). Pass None to
+    disable. sl_trail=True makes the stop loss ratchet with new highs.
     """
     if strategy_key not in STRATEGIES:
         raise KeyError(f"Unknown strategy {strategy_key!r}; see strategies.STRATEGIES")
@@ -90,6 +97,13 @@ def run_from_prices(
     else:
         sig = spec.fn(close, **(params or {}))
 
+    stop_kwargs: dict[str, Any] = {}
+    if sl_stop is not None and sl_stop > 0:
+        stop_kwargs["sl_stop"] = float(sl_stop)
+        stop_kwargs["sl_trail"] = bool(sl_trail)
+    if tp_stop is not None and tp_stop > 0:
+        stop_kwargs["tp_stop"] = float(tp_stop)
+
     pf = vbt.Portfolio.from_signals(
         close=close,
         entries=sig.entries,
@@ -97,6 +111,7 @@ def run_from_prices(
         init_cash=initial_cash,
         fees=fees,
         freq="1D",
+        **stop_kwargs,
     )
 
     return {
@@ -108,6 +123,9 @@ def run_from_prices(
         "entries": sig.entries,
         "exits": sig.exits,
         "portfolio": pf,
+        "stops": {
+            "sl_stop": sl_stop, "tp_stop": tp_stop, "sl_trail": sl_trail,
+        },
     }
 
 
@@ -119,7 +137,13 @@ def run_backtest(
     end: date | str | None = None,
     initial_cash: float = 10_000.0,
     fees: float = 0.0005,
+    sl_stop: float | None = None,
+    tp_stop: float | None = None,
+    sl_trail: bool = False,
 ) -> dict[str, Any]:
     """CLI/script entry point: pulls prices from Supabase via SQLAlchemy, then backtests."""
     df = load_prices(symbol, start=start, end=end)
-    return run_from_prices(symbol, df, strategy_key, params, initial_cash, fees)
+    return run_from_prices(
+        symbol, df, strategy_key, params, initial_cash, fees,
+        sl_stop=sl_stop, tp_stop=tp_stop, sl_trail=sl_trail,
+    )

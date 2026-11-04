@@ -7,6 +7,7 @@ import streamlit as st
 
 from stocks_tracker.app_data import load_ingest_state, load_prices, load_tickers
 from stocks_tracker.backtest import run_from_prices
+from stocks_tracker.indicators import williams_r
 from stocks_tracker.strategies import STRATEGIES
 
 
@@ -28,6 +29,16 @@ def _period_returns(df: pd.DataFrame) -> dict[str, float]:
         "m6_pct": pct(last - pd.Timedelta(days=180)),
         "m3_pct": pct(last - pd.Timedelta(days=90)),
     }
+
+
+def _current_wr(df: pd.DataFrame, period: int = 14) -> float:
+    """Latest Williams %R value, or NaN if not enough bars."""
+    if len(df) < period + 1:
+        return float("nan")
+    try:
+        return float(williams_r(df["high"], df["low"], df["close"], period).iloc[-1])
+    except Exception:
+        return float("nan")
 
 
 st.set_page_config(page_title="Screener — Stocks Tracker", layout="wide")
@@ -65,7 +76,33 @@ pool = sorted(set(merged.loc[pool_mask, "symbol"]))
 max_universe = st.sidebar.slider("Max symbols to backtest", 5, max(5, len(pool)),
                                  min(50, len(pool)))
 pool = pool[:max_universe]
-st.sidebar.caption(f"Backtesting {len(pool)} symbols")
+st.sidebar.caption(f"Backtesting up to {len(pool)} symbols (before pre-filters)")
+
+# --- Pre-filters: skip tickers that don't match these criteria before the
+# heavy backtest step. Defaults are permissive — nothing is filtered until
+# the user tightens a knob.
+with st.sidebar.expander("Pre-filters (optional)"):
+    st.caption("Skip tickers that fail these before backtesting.")
+    min_ytd = st.number_input("Min YTD %", value=-100.0, step=5.0, format="%.1f",
+                              help="Exclude tickers below this year-to-date return")
+    min_m6 = st.number_input("Min 6M %", value=-100.0, step=5.0, format="%.1f")
+    min_m3 = st.number_input("Min 3M %", value=-100.0, step=5.0, format="%.1f")
+    wr_lo, wr_hi = st.slider(
+        "Current Williams %R range",
+        -100.0, 0.0, (-100.0, 0.0), 1.0,
+        help="Keep tickers whose latest %R(14) falls in this band. "
+             "e.g. (-100, -80) = currently oversold; (-20, 0) = currently overbought.",
+    )
+    cap_available = any(v for v in cap_by_symbol.values())
+    if cap_available:
+        min_cap_b = st.number_input("Min market cap ($B)", value=0.0, step=1.0,
+                                    min_value=0.0,
+                                    help="0 = don't filter. 10 = large-caps only.")
+        max_cap_b = st.number_input("Max market cap ($B)", value=0.0, step=10.0,
+                                    min_value=0.0,
+                                    help="0 = no upper cap.")
+    else:
+        min_cap_b = max_cap_b = 0.0
 
 strategy_key = st.sidebar.selectbox(
     "Strategy", list(STRATEGIES.keys()),
@@ -86,13 +123,25 @@ rank_by = st.sidebar.selectbox(
     "Rank by",
     [
         "sharpe_ratio", "annualized_return_pct", "calmar_ratio", "total_return_pct",
-        "ytd_pct", "m6_pct", "m3_pct", "market_cap",
+        "ytd_pct", "m6_pct", "m3_pct", "market_cap", "current_wr",
     ],
     index=0,
 )
 
+st.sidebar.divider()
+st.sidebar.markdown("**Risk management**")
+use_sl = st.sidebar.checkbox("Stop loss", value=False, key="scr_sl")
+sl_pct = st.sidebar.slider("Stop loss %", 0.5, 25.0, 5.0, 0.5,
+                           disabled=not use_sl, key="scr_sl_pct") if use_sl else 0.0
+sl_trail = st.sidebar.checkbox("Trailing stop", value=False,
+                                disabled=not use_sl, key="scr_sl_trail")
+use_tp = st.sidebar.checkbox("Take profit", value=False, key="scr_tp")
+tp_pct = st.sidebar.slider("Take profit %", 0.5, 50.0, 10.0, 0.5,
+                           disabled=not use_tp, key="scr_tp_pct") if use_tp else 0.0
+
 if st.sidebar.button("Run screener", type="primary"):
     rows = []
+    filtered_out = 0
     progress = st.progress(0.0, text="Starting...")
     for i, symbol in enumerate(pool):
         progress.progress((i + 1) / len(pool), text=f"[{i + 1}/{len(pool)}] {symbol}")
@@ -100,24 +149,59 @@ if st.sidebar.button("Run screener", type="primary"):
             df = load_prices(symbol, start=start, end=end)
             if df.empty or len(df) < 60:
                 continue
-            res = run_from_prices(symbol, df, strategy_key, params=params)
+
+            # --- Apply pre-filters -----------------------------------------
+            pr = _period_returns(df)
+            curr_wr = _current_wr(df, 14)
+            cap = cap_by_symbol.get(symbol)
+
+            if min_ytd > -100 and (pd.isna(pr["ytd_pct"]) or pr["ytd_pct"] < min_ytd):
+                filtered_out += 1
+                continue
+            if min_m6 > -100 and (pd.isna(pr["m6_pct"]) or pr["m6_pct"] < min_m6):
+                filtered_out += 1
+                continue
+            if min_m3 > -100 and (pd.isna(pr["m3_pct"]) or pr["m3_pct"] < min_m3):
+                filtered_out += 1
+                continue
+            if (wr_lo > -100 or wr_hi < 0) and (
+                pd.isna(curr_wr) or not (wr_lo <= curr_wr <= wr_hi)
+            ):
+                filtered_out += 1
+                continue
+            if min_cap_b > 0 and (cap is None or cap < min_cap_b * 1e9):
+                filtered_out += 1
+                continue
+            if max_cap_b > 0 and cap is not None and cap > max_cap_b * 1e9:
+                filtered_out += 1
+                continue
+
+            # --- Passed filters: run the backtest --------------------------
+            res = run_from_prices(
+                symbol, df, strategy_key, params=params,
+                sl_stop=(sl_pct / 100) if use_sl else None,
+                tp_stop=(tp_pct / 100) if use_tp else None,
+                sl_trail=sl_trail if use_sl else False,
+            )
             m = res["metrics"]
             rows.append({
                 "symbol": symbol,
                 **m,
-                **_period_returns(df),
-                "market_cap": cap_by_symbol.get(symbol),
+                **pr,
+                "current_wr": curr_wr,
+                "market_cap": cap,
             })
         except Exception as exc:  # noqa: BLE001
             st.warning(f"{symbol}: {exc}")
     progress.empty()
 
     if not rows:
-        st.info("No successful backtests.")
+        st.info(f"No tickers passed the filters ({filtered_out} filtered out).")
         st.stop()
 
     results = pd.DataFrame(rows).sort_values(rank_by, ascending=False).reset_index(drop=True)
-    st.success(f"Backtested {len(results)} / {len(pool)} symbols")
+    filter_summary = f" · {filtered_out} filtered out" if filtered_out else ""
+    st.success(f"Backtested {len(results)} / {len(pool)} symbols{filter_summary}")
 
     st.dataframe(
         results,
@@ -137,6 +221,7 @@ if st.sidebar.button("Run screener", type="primary"):
             "ytd_pct": st.column_config.NumberColumn("YTD %", format="%+.2f"),
             "m6_pct": st.column_config.NumberColumn("6M %", format="%+.2f"),
             "m3_pct": st.column_config.NumberColumn("3M %", format="%+.2f"),
+            "current_wr": st.column_config.NumberColumn("%R(14)", format="%.1f"),
             "market_cap": st.column_config.NumberColumn("Market cap", format="compact"),
         },
     )
