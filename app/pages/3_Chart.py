@@ -39,7 +39,7 @@ overlays = st.sidebar.multiselect(
 )
 lower_panel = st.sidebar.radio(
     "Lower panel",
-    ["Volume", "RSI(14)", "MACD", "Williams %R(14)"],
+    ["RSI(14)", "MACD", "Williams %R(14)"],
     index=0,
 )
 
@@ -53,12 +53,28 @@ fig = make_subplots(
     vertical_spacing=0.03,
 )
 
+# Line + high/low shaded range. Candlestick dropped because the `open`
+# column was removed from the schema (free-tier size reduction).
 fig.add_trace(
-    go.Candlestick(
-        x=df.index, open=df["open"], high=df["high"], low=df["low"], close=df["close"],
-        name=symbol, showlegend=False,
-        increasing=dict(line=dict(color=COLORS["candle_up"]), fillcolor=COLORS["candle_up"]),
-        decreasing=dict(line=dict(color=COLORS["candle_down"]), fillcolor=COLORS["candle_down"]),
+    go.Scatter(
+        x=df.index, y=df["high"], name="High", showlegend=False,
+        line=dict(color=COLORS["grid"], width=0),
+    ),
+    row=1, col=1,
+)
+fig.add_trace(
+    go.Scatter(
+        x=df.index, y=df["low"], name="Low", showlegend=False,
+        line=dict(color=COLORS["grid"], width=0),
+        fill="tonexty", fillcolor="rgba(94, 179, 255, 0.07)",
+    ),
+    row=1, col=1,
+)
+fig.add_trace(
+    go.Scatter(
+        x=df.index, y=df["close"], name=symbol,
+        line=dict(color=COLORS["primary"], width=2),
+        hovertemplate="%{x|%b %d, %Y}<br>Close: %{y:$,.2f}<extra></extra>",
     ),
     row=1, col=1,
 )
@@ -84,15 +100,7 @@ if "Bollinger(20, 2)" in overlays:
                              line=dict(width=1, color=COLORS["muted"]),
                              fill="tonexty", fillcolor="rgba(138,148,166,0.08)"), row=1, col=1)
 
-if lower_panel == "Volume":
-    volume_colors = [
-        COLORS["candle_up"] if c >= o else COLORS["candle_down"]
-        for o, c in zip(df["open"], df["close"], strict=False)
-    ]
-    fig.add_trace(go.Bar(x=df.index, y=df["volume"], name="Volume",
-                         showlegend=False, marker=dict(color=volume_colors, opacity=0.6)),
-                  row=2, col=1)
-elif lower_panel == "RSI(14)":
+if lower_panel == "RSI(14)":
     r = rsi(close, 14)
     fig.add_trace(go.Scatter(x=df.index, y=r, name="RSI(14)", showlegend=False,
                              line=dict(color=COLORS["primary"], width=1.4)),

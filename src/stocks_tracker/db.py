@@ -116,20 +116,18 @@ def upsert_tickers(rows: Iterable[tuple[str, str | None, list[str], date | None]
 
 PRICES_UPSERT_SQL = """
     INSERT INTO prices
-        (symbol, trade_date, open, high, low, close, adj_close, volume)
+        (symbol, trade_date, high, low, close, adj_close)
     VALUES %s
     ON CONFLICT (symbol, trade_date) DO UPDATE SET
-        open      = EXCLUDED.open,
         high      = EXCLUDED.high,
         low       = EXCLUDED.low,
         close     = EXCLUDED.close,
-        adj_close = EXCLUDED.adj_close,
-        volume    = EXCLUDED.volume
+        adj_close = EXCLUDED.adj_close
 """
 
 
 def upsert_prices(rows: Sequence[tuple]) -> int:
-    """Bulk upsert OHLCV rows. Each tuple is (symbol, trade_date, o, h, l, c, adj, vol)."""
+    """Bulk upsert OHLC rows. Each tuple is (symbol, trade_date, h, l, c, adj)."""
     return _execute_values_upsert(PRICES_UPSERT_SQL, rows)
 
 

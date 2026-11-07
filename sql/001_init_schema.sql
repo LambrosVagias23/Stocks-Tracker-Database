@@ -12,20 +12,22 @@ CREATE TABLE IF NOT EXISTS tickers (
 
 -- NOTE: OHLC columns use REAL (float4, 4 bytes) rather than NUMERIC for
 -- storage efficiency on the 500MB free tier. Real's ~7 decimal digit
--- precision is well above what stock prices need. Migration 005 handles
--- pre-existing NUMERIC columns.
+-- precision is well above what stock prices need.
+--
+-- `open` and `volume` are intentionally omitted (migration 006): dropped to
+-- stay under the free-tier ceiling. Trade-off: candlestick chart and volume
+-- bars are no longer available (replaced by line chart).
+--
+-- No idx_prices_date: no app query filters by date alone.
 CREATE TABLE IF NOT EXISTS prices (
     symbol      TEXT NOT NULL REFERENCES tickers(symbol) ON DELETE CASCADE,
     trade_date  DATE NOT NULL,
-    open        REAL,
     high        REAL,
     low         REAL,
     close       REAL,
     adj_close   REAL,
-    volume      BIGINT,
     PRIMARY KEY (symbol, trade_date)
 );
-CREATE INDEX IF NOT EXISTS idx_prices_date ON prices(trade_date);
 
 CREATE TABLE IF NOT EXISTS ingest_state (
     symbol       TEXT PRIMARY KEY REFERENCES tickers(symbol) ON DELETE CASCADE,

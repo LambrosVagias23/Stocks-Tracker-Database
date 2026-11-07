@@ -67,7 +67,7 @@ def update_incremental(
 
     upsert_prices(
         [
-            (r.symbol, r.trade_date, r.open, r.high, r.low, r.close, r.adj_close, r.volume)
+            (r.symbol, r.trade_date, r.high, r.low, r.close, r.adj_close)
             for r in rows
         ]
     )

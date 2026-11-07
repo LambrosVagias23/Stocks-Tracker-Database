@@ -84,7 +84,7 @@ def load_prices(
     sb = get_client()
     q = (
         sb.table("prices")
-        .select("trade_date, open, high, low, close, adj_close, volume")
+        .select("trade_date, high, low, close, adj_close")
         .eq("symbol", symbol)
         .order("trade_date")
     )
@@ -98,7 +98,6 @@ def load_prices(
         return df
     df["trade_date"] = pd.to_datetime(df["trade_date"])
     df = df.set_index("trade_date")
-    for col in ("open", "high", "low", "close", "adj_close"):
+    for col in ("high", "low", "close", "adj_close"):
         df[col] = df[col].astype(float)
-    df["volume"] = df["volume"].fillna(0).astype(int)
     return df

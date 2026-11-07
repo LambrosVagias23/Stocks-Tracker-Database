@@ -29,14 +29,14 @@ def load_prices(
         clauses.append("trade_date <= :end")
         params["end"] = end
     sql = (
-        "SELECT trade_date, open, high, low, close, adj_close, volume "
+        "SELECT trade_date, high, low, close, adj_close "
         "FROM prices WHERE " + " AND ".join(clauses) + " ORDER BY trade_date"
     )
     with engine.connect() as c:
         df = pd.read_sql(text(sql), c, params=params)
     df["trade_date"] = pd.to_datetime(df["trade_date"])
     df = df.set_index("trade_date")
-    for col in ("open", "high", "low", "close", "adj_close"):
+    for col in ("high", "low", "close", "adj_close"):
         df[col] = df[col].astype(float)
     return df
 

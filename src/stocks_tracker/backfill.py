@@ -29,7 +29,7 @@ def _write_batch(rows: list[PriceRow]) -> dict[str, date]:
     if not rows:
         return {}
     tuples = [
-        (r.symbol, r.trade_date, r.open, r.high, r.low, r.close, r.adj_close, r.volume)
+        (r.symbol, r.trade_date, r.high, r.low, r.close, r.adj_close)
         for r in rows
     ]
     upsert_prices(tuples)

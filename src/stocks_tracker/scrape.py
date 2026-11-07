@@ -23,20 +23,14 @@ log = logging.getLogger(__name__)
 class PriceRow(NamedTuple):
     symbol: str
     trade_date: date
-    open: float | None
     high: float | None
     low: float | None
     close: float | None
     adj_close: float | None
-    volume: int | None
 
 
 def _nan_to_none_float(x) -> float | None:
     return None if x is None or pd.isna(x) else float(x)
-
-
-def _nan_to_none_int(x) -> int | None:
-    return None if x is None or pd.isna(x) else int(x)
 
 
 def _flatten_download(df: pd.DataFrame, batch: Sequence[str]) -> list[PriceRow]:
@@ -64,17 +58,15 @@ def _flatten_download(df: pd.DataFrame, batch: Sequence[str]) -> list[PriceRow]:
                 "Ticker": "symbol",
                 "Date": "trade_date",
                 "Datetime": "trade_date",
-                "Open": "open",
                 "High": "high",
                 "Low": "low",
                 "Close": "close",
                 "Adj Close": "adj_close",
-                "Volume": "volume",
             }
         )
     )
 
-    long = long.dropna(subset=["open", "high", "low", "close"], how="all")
+    long = long.dropna(subset=["high", "low", "close"], how="all")
 
     out: list[PriceRow] = []
     for row in long.itertuples(index=False):
@@ -87,12 +79,10 @@ def _flatten_download(df: pd.DataFrame, batch: Sequence[str]) -> list[PriceRow]:
             PriceRow(
                 symbol=str(row.symbol),
                 trade_date=d,
-                open=_nan_to_none_float(row.open),
                 high=_nan_to_none_float(row.high),
                 low=_nan_to_none_float(row.low),
                 close=_nan_to_none_float(row.close),
                 adj_close=_nan_to_none_float(row.adj_close),
-                volume=_nan_to_none_int(row.volume),
             )
         )
     return out

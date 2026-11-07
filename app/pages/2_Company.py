@@ -176,8 +176,8 @@ s1, s2, s3, s4 = st.columns(4)
 s1.metric("Bars stored", f"{len(df):,}")
 s2.metric("First bar", df.index[0].strftime("%b %d, %Y"))
 s3.metric("Last bar",  df.index[-1].strftime("%b %d, %Y"))
-avg_vol = int(df.tail(90)["volume"].mean()) if not df.tail(90)["volume"].empty else 0
-s4.metric("Avg volume (90d)", f"{avg_vol:,}")
+avg_range = (df.tail(90)["high"] - df.tail(90)["low"]).mean()
+s4.metric("Avg daily range (90d)", f"${avg_range:,.2f}")
 
 # --- Recent bars table + CSV download --------------------------------------
 
@@ -190,12 +190,10 @@ st.dataframe(
     hide_index=True,
     column_config={
         "trade_date": st.column_config.DateColumn("Date"),
-        "open":      st.column_config.NumberColumn("Open",  format="$%.2f"),
         "high":      st.column_config.NumberColumn("High",  format="$%.2f"),
         "low":       st.column_config.NumberColumn("Low",   format="$%.2f"),
         "close":     st.column_config.NumberColumn("Close", format="$%.2f"),
         "adj_close": st.column_config.NumberColumn("Adj close", format="$%.2f"),
-        "volume":    st.column_config.NumberColumn("Volume", format="%d"),
     },
 )
 
