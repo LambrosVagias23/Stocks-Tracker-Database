@@ -10,14 +10,18 @@ CREATE TABLE IF NOT EXISTS tickers (
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- NOTE: OHLC columns use REAL (float4, 4 bytes) rather than NUMERIC for
+-- storage efficiency on the 500MB free tier. Real's ~7 decimal digit
+-- precision is well above what stock prices need. Migration 005 handles
+-- pre-existing NUMERIC columns.
 CREATE TABLE IF NOT EXISTS prices (
     symbol      TEXT NOT NULL REFERENCES tickers(symbol) ON DELETE CASCADE,
     trade_date  DATE NOT NULL,
-    open        NUMERIC(18,4),
-    high        NUMERIC(18,4),
-    low         NUMERIC(18,4),
-    close       NUMERIC(18,4),
-    adj_close   NUMERIC(18,4),
+    open        REAL,
+    high        REAL,
+    low         REAL,
+    close       REAL,
+    adj_close   REAL,
     volume      BIGINT,
     PRIMARY KEY (symbol, trade_date)
 );
